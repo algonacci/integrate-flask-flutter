@@ -1,24 +1,32 @@
 from flask import Flask, request, jsonify
 import mysql.connector
+import os
+from werkzeug.utils import secure_filename
+
 
 db = mysql.connector.connect(
     host="localhost",
-    user="eric",
-    passwd="1234",
-    database="attendance_ai",
+    user="root",
+    passwd="",
+    database="db_attendanceai",
 )
 
 cursor = db.cursor()
 
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 
 @app.route("/", methods=["POST"])
 def index():
     file = request.files["image"]
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
     name = request.form["name"]
     id_user = request.form["user_id"]
     time = request.form["time"]
     attendance_type = request.form["attendance_type"]
+    
     print(file)
     print(name)
     print(id_user)
@@ -27,10 +35,10 @@ def index():
     if request.method == "POST":
         cursor.execute("""
         INSERT INTO `attendances` 
-        (`id_user`, `name`, `time`, `attendance_type`)
+        (`user_id`, `clock_in`, `image_file`, `created_at`, `updated_at`)
         VALUES
-        ('{}', '{}', '{}', '{}')
-        """.format(id_user, name, time, attendance_type))
+        ('{}', '{}', 'http://127.0.0.1:5000/static/uploads/{}', '{}', '{}')
+        """.format("102", time, filename, time, time))
         db.commit()
         
         return jsonify({
@@ -41,6 +49,25 @@ def index():
         "time": time,
         "attedance_type": attendance_type
     })
+
+@app.route("/clockout", methods=["POST"])
+def clock_out():
+    id_user = request.form["user_id"]
+    time = request.form["time"]
+    
+    cursor.execute("""
+    UPDATE attendances
+    SET clock_out='{}', updated_at='{}'
+    WHERE user_id='{}'
+    """.format(time, time, 102))
+    db.commit()
+    
+    return jsonify({
+        "status_code": 200,
+        "message": "Success clocking out",
+        "time": time
+    })
+
 
 if __name__ == "__main__":
     app.run(
